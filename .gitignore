@@ -1,0 +1,14 @@
+# Python virtual environment (machine-specific, large — rebuild from requirements.txt)
+venv/
+.venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Secrets: DB connection strings, API keys — NEVER commit
+.env
+.env.*
+
+# macOS Finder metadata
+.DS_Store
