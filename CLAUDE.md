@@ -46,19 +46,83 @@ is too small for ML); keep the design ML-ready.
 
 All in one Supabase Postgres ("Football Heritage" / branch "FBH Backend").
 
-## Environment
+## Stack & environment
 
-- Runs locally on macOS (`~/Documents/soccer-stats`), Python 3.14 venv.
+- **Python 3.14** venv, macOS, local dir `~/Documents/soccer-stats`.
+- **soccerdata** → Understat (xG, shots, schedule, player season stats).
+- **Supabase** (hosted Postgres) — project "Football Heritage", branch "FBH Backend", `main`.
+- Planned: dbt (marts), Streamlit (frontend), GitHub Actions (scheduling).
 - Before any Understat read:
   `export TLS_LIBRARY_PATH="$(pwd)/tls-client-darwin-amd64-1.13.1.dylib"`
-  (the dylib is macOS-only; Understat pulls won't run in a Linux cloud session).
+  (macOS-only dylib; Understat pulls won't run in a Linux cloud session).
 - Supabase connection string lives in `.env`. **Never commit `.env` or print
   secrets.** `.gitignore` already covers it.
-- Season `"2024"` = 2024/25 campaign (cached as `2425`); it's a sample, not product.
+- No `requirements.txt` yet — dependencies are unpinned.
+- Existing scripts (`check_methods.py`, `show_columns.py`, `explore_data.py`,
+  `understat_clubs.py`) are exploration only: they read and print, nothing persists.
 
-## Conventions
+## Data contract (season `"2024"` = 2024/25, cached as `2425`)
 
-- `honors.competition_type` vocabulary: `european`, `domestic_league`,
-  `domestic_cup` — exact casing.
-- Empty honors (Brighton) is real data, not missing data.
-- Schema changes should be version-controlled SQL under `db/`.
+- `read_shot_events()` — 9,878 rows × 16 cols: `league_id, season_id, game_id,
+  date, shot_id, team_id, player_id, assist_player_id, assist_player, xg,
+  location_x, location_y, minute, body_part, situation, result`
+- `read_schedule()` — incl. `home_team_id, away_team_id, home_team, away_team,
+  home_goals, away_goals, home_xg, away_xg, is_result, has_data, url`
+- `read_player_season_stats()` — incl. `position, matches, minutes, goals, xg,
+  np_goals, np_xg, assists, xa, shots, key_passes, xg_chain, xg_buildup`
+
+Understat team ids: full list of all 20 PL clubs in `COMPLETIONS_LOG.md`.
+
+## Supabase schema (verified live 2026-09-19)
+
+`public` has 5 curated tables, seeded with a 3-club sample. **No `staging`
+schema exists yet and no raw Understat data is persisted.** The schema lives
+only in Supabase — it is not yet in the repo (to-do: `db/` folder).
+
+| Table | Shape | Rows | Notes |
+|---|---|---|---|
+| `clubs` | hub | 3 | club, founded, stadium, nickname, fanbase_size, `understat_team_id` |
+| `traits` | lookup | 12 | identity + playing-style families |
+| `club_traits` | M:M junction | 13 | clubs ↔ traits |
+| `honors` | 1:M | 8 | `competition_type` ∈ `european`, `domestic_league`, `domestic_cup` (exact casing) |
+| `cross_sport_analogues` | 1:M (M:M in spirit) | 8 | club ↔ free-text `external_team`, reason, `similarity_score` |
+
+Sample clubs: **Manchester City (id 1, understat 88), Liverpool (2, 87),
+Brighton (3, 220)** — City, *not* Manchester United.
+
+## Settled decisions — don't relitigate
+
+- Season 2024 is an arbitrary sample; everything in the DB is scaffolding.
+- Three layers (above); raw and curated data never share tables.
+- `understat_team_id` stays inline on `clubs` until a second data source exists
+  (then a `club_source_ids` bridge).
+- `club_traits` is a true many-to-many.
+- Trait vocabulary splits into *identity* vs *playing style* families.
+- Empty `honors` (Brighton) is real data, not a gap.
+- `similarity_score` values are trait-informed research estimates confirmed by
+  me — not model output.
+- `external_team` is free text, not an FK — a conscious "not yet".
+- Next ingestion is an **idempotent, on-demand refresh**, starting with shots
+  only for season 2024 into a new `staging` schema. Scheduling comes later.
+- **No ML in v1**: rule-based weighted matching (n≈20 clubs is too small);
+  keep the architecture ML-ready.
+
+## Open questions — raise when relevant
+
+1. **Supabase connection approach** from Python (SQLAlchemy+psycopg2 vs
+   `supabase` client). Ask me before writing connection code.
+2. **Where ML/match weights live** — `weight` column on `club_traits` or a
+   separate scoring table. Undecided.
+3. **Fanbase methodology** — stored City value (109.5M) doesn't match
+   IG+TikTok+YouTube (~97M). Pick one rule, re-derive all clubs before scaling.
+4. **Cold-start TLS** — is the manual `ctypes` load ever needed?
+
+Parked improvements (fanbase size vs identity, similarity vs affinity,
+which traits become data-derived) are in `DECISIONS.md` — raise each only when
+we touch that piece.
+
+## Roadmap
+
+1. Staging ingestion (next) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
+(bottleneck is curation, not code) → 4. `club_legends` + `legendary_matches`
+(YouTube links) → 5. Matching logic → 6. Streamlit → 7. ML (only if it scales).
