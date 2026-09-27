@@ -57,7 +57,9 @@ All in one Supabase Postgres ("Football Heritage" / branch "FBH Backend").
   (macOS-only dylib; Understat pulls won't run in a Linux cloud session).
 - Supabase connection string lives in `.env`. **Never commit `.env` or print
   secrets.** `.gitignore` already covers it.
-- No `requirements.txt` yet — dependencies are unpinned.
+- `requirements.txt` pins direct dependencies only. Rebuild with
+  `pip install -r requirements.txt`. `.env.example` is the committed template
+  for `.env`.
 - Existing scripts (`check_methods.py`, `show_columns.py`, `explore_data.py`,
   `understat_clubs.py`) are exploration only: they read and print, nothing persists.
 
@@ -104,13 +106,19 @@ Brighton (3, 220)** — City, *not* Manchester United.
 - `external_team` is free text, not an FK — a conscious "not yet".
 - Next ingestion is an **idempotent, on-demand refresh**, starting with shots
   only for season 2024 into a new `staging` schema. Scheduling comes later.
+- **Python → Supabase connection: SQLAlchemy + psycopg2**, with
+  `python-dotenv` loading `DATABASE_URL` from `.env` (decided 2026-09-27).
+  Supabase stays the database; ERDs come from its dashboard Schema Visualizer.
+- **`staging.understat_shots`**: grain is one row per shot, `shot_id` is the
+  PK, `game_id` links to the (future) schedule table, `season_id` scopes each
+  reload.
 - **No ML in v1**: rule-based weighted matching (n≈20 clubs is too small);
   keep the architecture ML-ready.
 
 ## Open questions — raise when relevant
 
-1. **Supabase connection approach** from Python (SQLAlchemy+psycopg2 vs
-   `supabase` client). Ask me before writing connection code.
+1. ~~Supabase connection approach~~ — resolved 2026-09-27, see Settled
+   decisions.
 2. **Where ML/match weights live** — `weight` column on `club_traits` or a
    separate scoring table. Undecided.
 3. **Fanbase methodology** — stored City value (109.5M) doesn't match

@@ -1,0 +1,15 @@
+# Direct dependencies only, pinned to the versions verified working (Python 3.14).
+# pip installs their sub-dependencies (numpy, requests, ...) automatically.
+# Recreate the environment with:
+#   python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+# Reading data: Understat via soccerdata, handled as pandas DataFrames
+soccerdata==1.9.1
+pandas==3.0.5
+
+# Writing data: Python -> Supabase Postgres
+SQLAlchemy==2.0.52       # engine / connection management, pandas.to_sql support
+psycopg2-binary==2.9.12  # the Postgres driver SQLAlchemy talks through
+
+# Config: loads DATABASE_URL from the git-ignored .env file
+python-dotenv==1.2.3
