@@ -62,6 +62,10 @@ All in one Supabase Postgres ("Football Heritage" / branch "FBH Backend").
   for `.env`.
 - Existing scripts (`check_methods.py`, `show_columns.py`, `explore_data.py`,
   `understat_clubs.py`) are exploration only: they read and print, nothing persists.
+- **`exploration/`** holds every throwaway check that informed a decision, kept
+  for study and as a record of process. Never run one-off checks without
+  saving them here; commit each with the finding it supports. Run from the repo
+  root: `python exploration/<script>.py`.
 
 ## Data contract (season `"2024"` = 2024/25, cached as `2425`)
 
