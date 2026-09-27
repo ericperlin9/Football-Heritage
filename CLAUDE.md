@@ -93,11 +93,11 @@ Table definition: `db/001_staging_understat_shots.sql` (+ `loaded_at` audit colu
 
 ## Supabase schema (verified live 2026-09-19)
 
-`public` has 5 curated tables, seeded with a 3-club sample. **No `staging`
-schema exists yet and no raw Understat data is persisted.** The `public`
+`public` has 5 curated tables, seeded with a 3-club sample. `staging`
+exists with an empty `understat_shots`; **no raw Understat data is persisted yet.** The `public`
 schema lives only in Supabase — not yet in the repo. `db/` holds new SQL,
-numbered in the order to apply it; `001` (staging shots) is dry-run
-verified but not yet applied.
+numbered in the order to apply it; `001` (staging shots) applied
+2026-09-27 — table exists, empty until the loader runs.
 
 | Table | Shape | Rows | Notes |
 |---|---|---|---|
