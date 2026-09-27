@@ -79,11 +79,25 @@ All in one Supabase Postgres ("Football Heritage" / branch "FBH Backend").
 
 Understat team ids: full list of all 20 PL clubs in `COMPLETIONS_LOG.md`.
 
+**soccerdata shot bugs — staging takes these from the raw cached JSON**
+(`~/soccerdata/data/Understat/match_*.json`; evidence in `exploration/`):
+- `situation`, `body_part`, `result`: stored as raw Understat codes
+  (`OpenPlay`, `Head`, `MissedShots`…). soccerdata's label map turns
+  `Penalty`, `Head`, `OtherBodyPart` into NULL.
+- `assist_player_id`: soccerdata returns the roster *row* id (per-match lineup
+  slot), not the player id. Resolve the assister's name to the raw roster's
+  `player_id` instead (all 7,377 resolve unambiguously in 2024).
+- `last_action`: raw `lastAction`, which soccerdata drops. Added as a 17th column.
+
+Table definition: `db/001_staging_understat_shots.sql` (+ `loaded_at` audit column).
+
 ## Supabase schema (verified live 2026-09-19)
 
 `public` has 5 curated tables, seeded with a 3-club sample. **No `staging`
-schema exists yet and no raw Understat data is persisted.** The schema lives
-only in Supabase — it is not yet in the repo (to-do: `db/` folder).
+schema exists yet and no raw Understat data is persisted.** The `public`
+schema lives only in Supabase — not yet in the repo. `db/` holds new SQL,
+numbered in the order to apply it; `001` (staging shots) is dry-run
+verified but not yet applied.
 
 | Table | Shape | Rows | Notes |
 |---|---|---|---|
