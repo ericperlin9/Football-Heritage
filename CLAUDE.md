@@ -91,15 +91,28 @@ Understat team ids: full list of all 20 PL clubs in `COMPLETIONS_LOG.md`.
 
 Table definition: `db/001_staging_understat_shots.sql` (+ `loaded_at` audit column).
 
+**Own goals in shots:** an `OwnGoal` row is logged under the team of the player
+who put it in their own net, with xG 0, and the goal counts for the *other* team.
+Marts must exclude these rows from a team's shots/xG. Scores rebuilt this way
+match the schedule for all 380 games (`exploration/check_staging_joins.py`).
+
+**Schedule** (`staging.understat_schedule`, `db/002_…`): soccerdata's schedule
+matches the raw JSON exactly, so it's used as-is minus its derived `url` and
+`has_data`. Added Understat's `forecast` as `forecast_home_win/draw/away_win`:
+post-match result probabilities computed from the match's xG, present only for
+played matches — not a prediction. Goals/xG/forecast are NULL for unplayed
+matches and are never filled with predictions.
+
 ## Supabase schema (public verified 2026-09-19; staging 2026-09-27)
 
 `public` has 5 curated tables, seeded with a 3-club sample. `staging` has
-`understat_shots`: **9,878 rows for season 2024**, loaded by
-`load_understat_shots.py`. That loader is idempotent (one transaction: delete the
-season, insert, verify count, commit) — re-running replaces, never duplicates;
+`understat_shots` (**9,878 rows**) and `understat_schedule` (**380 rows**) for
+season 2024, loaded by `load_understat_shots.py` / `load_understat_schedule.py`.
+Both use `staging_load.replace_season()`: one transaction that deletes the
+season, inserts, verifies the count and commits — re-running replaces, never duplicates;
 `exploration/test_rollback.py` proves a failed load leaves the previous one intact.
 The `public` schema lives only in Supabase — not yet in the repo. `db/` holds
-new SQL, numbered in the order to apply it; `001` (staging shots) is applied.
+new SQL, numbered in the order to apply it; `001` and `002` are applied.
 
 | Table | Shape | Rows | Notes |
 |---|---|---|---|
@@ -151,6 +164,6 @@ we touch that piece.
 
 ## Roadmap
 
-1. Staging ingestion (shots done 2026-09-27; schedule/players not yet) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
+1. Staging ingestion (shots + schedule done 2026-09-27; player season stats next) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
 (bottleneck is curation, not code) → 4. `club_legends` + `legendary_matches`
 (YouTube links) → 5. Matching logic → 6. Streamlit → 7. ML (only if it scales).
