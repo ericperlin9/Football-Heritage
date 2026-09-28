@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 
 # Table names can't be passed as query parameters, so they go into the SQL
 # string; allow only known tables so nothing unexpected is ever pasted in.
-STAGING_TABLES = {"understat_shots", "understat_schedule"}
+STAGING_TABLES = {"understat_shots", "understat_schedule", "understat_player_season"}
 
 
 def replace_season(frame, table, season_id):

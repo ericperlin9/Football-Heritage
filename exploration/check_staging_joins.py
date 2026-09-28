@@ -13,9 +13,10 @@ load_dotenv()
 engine = create_engine(os.environ["DATABASE_URL"])
 
 CHECKS = {
-    "Rows per table (shots, schedule)": """
+    "Rows per table (shots, schedule, player_season)": """
         SELECT (SELECT count(*) FROM staging.understat_shots),
-               (SELECT count(*) FROM staging.understat_schedule)""",
+               (SELECT count(*) FROM staging.understat_schedule),
+               (SELECT count(*) FROM staging.understat_player_season)""",
     "Shots whose game_id isn't in the schedule (want 0)": """
         SELECT count(*) FROM staging.understat_shots s
         LEFT JOIN staging.understat_schedule g USING (game_id)
@@ -42,6 +43,18 @@ CHECKS = {
     "Own-goal rows: count and total xG attached to them": """
         SELECT count(*), round(sum(xg)::numeric, 3) FROM staging.understat_shots
         WHERE result = 'OwnGoal'""",
+    "Players whose season shots/goals != their rows in the shots table": """
+        SELECT count(*) FILTER (WHERE p.shots != coalesce(s.shots, 0)),
+               count(*) FILTER (WHERE p.goals != coalesce(s.goals, 0))
+        FROM staging.understat_player_season p
+        LEFT JOIN (SELECT season_id, player_id, count(*) AS shots,
+                          count(*) FILTER (WHERE result = 'Goal') AS goals
+                   FROM staging.understat_shots GROUP BY season_id, player_id) s
+               USING (season_id, player_id)""",
+    "Sample clubs: players linked through team_ids": """
+        SELECT c.club_name, count(p.player_id) FROM public.clubs c
+        LEFT JOIN staging.understat_player_season p ON c.understat_team_id = ANY(p.team_ids)
+        GROUP BY c.club_name ORDER BY c.club_name""",
     "Sample clubs: matches played in staging": """
         SELECT c.club_name, count(g.game_id) FROM public.clubs c
         LEFT JOIN staging.understat_schedule g
