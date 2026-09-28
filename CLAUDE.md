@@ -93,7 +93,8 @@ Table definition: `db/001_staging_understat_shots.sql` (+ `loaded_at` audit colu
 
 **Own goals in shots:** an `OwnGoal` row is logged under the team of the player
 who put it in their own net, with xG 0, and the goal counts for the *other* team.
-Marts must exclude these rows from a team's shots/xG. Scores rebuilt this way
+Marts must exclude these rows from a team's shots/xG — Understat's own player
+season `shots` totals exclude them too (verified: all 562 players match). Scores rebuilt this way
 match the schedule for all 380 games (`exploration/check_staging_joins.py`).
 
 **Schedule** (`staging.understat_schedule`, `db/002_…`): soccerdata's schedule
@@ -103,16 +104,25 @@ post-match result probabilities computed from the match's xG, present only for
 played matches — not a prediction. Goals/xG/forecast are NULL for unplayed
 matches and are never filled with predictions.
 
+**Player season** (`staging.understat_player_season`, `db/003_…`): one row per
+player per season, composite PK `(season_id, player_id)` since `player_id`
+repeats across seasons. 12 players had two clubs in 2024; Understat gives one
+combined total, and soccerdata credits it to the alphabetically first club. We
+keep the raw `team_title` ("Brighton,Ipswich") and a `team_ids integer[]`
+instead; join clubs with `understat_team_id = ANY(team_ids)`. Per-club splits
+belong in marts and can be exact, from per-match lineups in the match JSON.
+
 ## Supabase schema (public verified 2026-09-19; staging 2026-09-27)
 
 `public` has 5 curated tables, seeded with a 3-club sample. `staging` has
-`understat_shots` (**9,878 rows**) and `understat_schedule` (**380 rows**) for
-season 2024, loaded by `load_understat_shots.py` / `load_understat_schedule.py`.
+`understat_shots` (**9,878 rows**), `understat_schedule` (**380**) and
+`understat_player_season` (**562**) for season 2024, each loaded by its
+`load_understat_*.py`. `exploration/check_staging_joins.py` checks the links.
 Both use `staging_load.replace_season()`: one transaction that deletes the
 season, inserts, verifies the count and commits — re-running replaces, never duplicates;
 `exploration/test_rollback.py` proves a failed load leaves the previous one intact.
 The `public` schema lives only in Supabase — not yet in the repo. `db/` holds
-new SQL, numbered in the order to apply it; `001` and `002` are applied.
+new SQL, numbered in the order to apply it; `001`–`003` are applied.
 
 | Table | Shape | Rows | Notes |
 |---|---|---|---|
@@ -164,6 +174,6 @@ we touch that piece.
 
 ## Roadmap
 
-1. Staging ingestion (shots + schedule done 2026-09-27; player season stats next) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
+1. Staging ingestion (done 2026-09-27: shots, schedule, player season) → 2. Marts (next) (style metrics) → 3. Scale 3 → 20 clubs
 (bottleneck is curation, not code) → 4. `club_legends` + `legendary_matches`
 (YouTube links) → 5. Matching logic → 6. Streamlit → 7. ML (only if it scales).

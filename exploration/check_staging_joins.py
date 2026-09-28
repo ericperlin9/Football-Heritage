@@ -43,11 +43,13 @@ CHECKS = {
     "Own-goal rows: count and total xG attached to them": """
         SELECT count(*), round(sum(xg)::numeric, 3) FROM staging.understat_shots
         WHERE result = 'OwnGoal'""",
-    "Players whose season shots/goals != their rows in the shots table": """
+    # Understat's season totals don't count own goals as shots: including them
+    # left exactly the 29 players with an own goal mismatched.
+    "Players whose season shots/goals != their shots-table rows, own goals excluded (want 0, 0)": """
         SELECT count(*) FILTER (WHERE p.shots != coalesce(s.shots, 0)),
                count(*) FILTER (WHERE p.goals != coalesce(s.goals, 0))
         FROM staging.understat_player_season p
-        LEFT JOIN (SELECT season_id, player_id, count(*) AS shots,
+        LEFT JOIN (SELECT season_id, player_id, count(*) FILTER (WHERE result != 'OwnGoal') AS shots,
                           count(*) FILTER (WHERE result = 'Goal') AS goals
                    FROM staging.understat_shots GROUP BY season_id, player_id) s
                USING (season_id, player_id)""",

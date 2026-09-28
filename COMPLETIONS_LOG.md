@@ -120,7 +120,7 @@ overachiever. (Two families: club *identity* + *playing style*.)
 ## Not built yet (planned)
 - [x] `staging` schema + `understat_shots` (2026-09-27)
 - [x] `staging.understat_schedule` (2026-09-27, 380 rows)
-- [ ] staging player-season stats table
+- [x] `staging.understat_player_season` (2026-09-27, 562 rows)
 - [ ] marts layer: per-club playing-style metrics derived from raw shots
 - [ ] dbt, Streamlit dashboard, GitHub Actions scheduling
 - [ ] legends + legendary_matches tables (YouTube links)
