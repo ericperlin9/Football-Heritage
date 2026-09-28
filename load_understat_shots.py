@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pandas as pd
 import soccerdata as sd
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, text
+
+from staging_load import replace_season
 
 SEASON = "2024"
 RAW_DIR = Path.home() / "soccerdata" / "data" / "Understat"
@@ -87,45 +87,9 @@ def build_shots(season):
     return merged[TABLE_COLUMNS]
 
 
-def load_shots(shots, season_id):
-    """Replace one season in staging.understat_shots: delete, insert, verify, commit."""
-    if shots.empty:
-        raise ValueError("Built 0 shots; refusing to replace the season with nothing")
-    if set(shots["season_id"]) != {season_id}:
-        raise ValueError(f"Built shots are not all season {season_id}")
-
-    load_dotenv()
-    engine = create_engine(os.environ["DATABASE_URL"])
-
-    # engine.begin() = BEGIN now; COMMIT when the block ends normally;
-    # ROLLBACK if anything inside raises (including a dropped connection).
-    with engine.begin() as conn:
-        deleted = conn.execute(
-            text("DELETE FROM staging.understat_shots WHERE season_id = :season_id"),
-            {"season_id": season_id},  # passed separately, never pasted into the SQL string
-        ).rowcount
-
-        shots.to_sql(
-            "understat_shots", conn, schema="staging",
-            if_exists="append",  # the table already exists; never let pandas recreate it
-            index=False,         # don't write pandas' row numbers as a column
-            method="multi",      # many rows per INSERT statement: far fewer round trips
-            chunksize=1000,
-        )
-
-        loaded = conn.execute(
-            text("SELECT count(*) FROM staging.understat_shots WHERE season_id = :season_id"),
-            {"season_id": season_id},
-        ).scalar_one()
-        if loaded != len(shots):  # raising here triggers the ROLLBACK
-            raise ValueError(f"Table has {loaded} rows for season {season_id}, built {len(shots)}")
-
-    return deleted, loaded
-
-
 if __name__ == "__main__":
     shots = build_shots(SEASON)
     print(f"Built {len(shots)} shots for season {SEASON}, all matched to raw JSON")
 
-    deleted, loaded = load_shots(shots, int(SEASON))
+    deleted, loaded = replace_season(shots, "understat_shots", int(SEASON))
     print(f"Committed: replaced {deleted} old rows with {loaded} new rows")

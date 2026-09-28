@@ -12,7 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))  # so we can i
 
 from sqlalchemy import create_engine, text
 
-from load_understat_shots import SEASON, build_shots, load_shots
+from load_understat_shots import SEASON, build_shots
+from staging_load import replace_season
 
 STATE_SQL = text(
     "SELECT count(*), min(loaded_at) FROM staging.understat_shots WHERE season_id = :season_id"
@@ -29,7 +30,7 @@ shots = build_shots(SEASON)
 shots.loc[shots.index[-1], "situation"] = "NotARealCode"  # last row, so the DELETE and most inserts run first
 
 try:
-    load_shots(shots, int(SEASON))  # also runs load_dotenv(), so table_state() can connect
+    replace_season(shots, "understat_shots", int(SEASON))  # also runs load_dotenv(), so table_state() can connect
     print("UNEXPECTED: the bad load committed")
 except Exception as error:
     # pandas wraps SQLAlchemy's error, which wraps psycopg2's; the innermost has Postgres' details
