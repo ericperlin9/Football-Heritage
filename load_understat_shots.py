@@ -5,8 +5,10 @@ the raw match JSON soccerdata caches, because soccerdata gets them wrong
 (evidence in exploration/): situation, body_part, result keep Understat's raw
 codes; assist_player_id becomes a real player id; last_action is added.
 
+The load replaces the whole season in one transaction, so it is safe to
+re-run: a failure at any point leaves the previous load untouched.
+
 Run:  python load_understat_shots.py
-(Step 1 of 2: builds and checks the table, does not write to the database yet.)
 """
 import os
 os.environ["TLS_LIBRARY_PATH"] = os.path.join(os.path.dirname(__file__), "tls-client-darwin-amd64-1.13.1.dylib")
@@ -16,6 +18,8 @@ from pathlib import Path
 
 import pandas as pd
 import soccerdata as sd
+from dotenv import load_dotenv
+from sqlalchemy import create_engine, text
 
 SEASON = "2024"
 RAW_DIR = Path.home() / "soccerdata" / "data" / "Understat"
@@ -83,13 +87,45 @@ def build_shots(season):
     return merged[TABLE_COLUMNS]
 
 
+def load_shots(shots, season_id):
+    """Replace one season in staging.understat_shots: delete, insert, verify, commit."""
+    if shots.empty:
+        raise ValueError("Built 0 shots; refusing to replace the season with nothing")
+    if set(shots["season_id"]) != {season_id}:
+        raise ValueError(f"Built shots are not all season {season_id}")
+
+    load_dotenv()
+    engine = create_engine(os.environ["DATABASE_URL"])
+
+    # engine.begin() = BEGIN now; COMMIT when the block ends normally;
+    # ROLLBACK if anything inside raises (including a dropped connection).
+    with engine.begin() as conn:
+        deleted = conn.execute(
+            text("DELETE FROM staging.understat_shots WHERE season_id = :season_id"),
+            {"season_id": season_id},  # passed separately, never pasted into the SQL string
+        ).rowcount
+
+        shots.to_sql(
+            "understat_shots", conn, schema="staging",
+            if_exists="append",  # the table already exists; never let pandas recreate it
+            index=False,         # don't write pandas' row numbers as a column
+            method="multi",      # many rows per INSERT statement: far fewer round trips
+            chunksize=1000,
+        )
+
+        loaded = conn.execute(
+            text("SELECT count(*) FROM staging.understat_shots WHERE season_id = :season_id"),
+            {"season_id": season_id},
+        ).scalar_one()
+        if loaded != len(shots):  # raising here triggers the ROLLBACK
+            raise ValueError(f"Table has {loaded} rows for season {season_id}, built {len(shots)}")
+
+    return deleted, loaded
+
+
 if __name__ == "__main__":
     shots = build_shots(SEASON)
-    print(f"{len(shots)} shots, all matched to raw JSON")
-    print("Nulls:", shots.isna().sum()[lambda n: n > 0].to_dict())
-    for column in ("situation", "body_part", "result"):
-        print(f"{column}:", shots[column].value_counts().to_dict())
-    print("assist_player_id range:", shots["assist_player_id"].min(), "-", shots["assist_player_id"].max())
-    print("Assisters who also appear as shooters:",
-          shots["assist_player_id"].dropna().isin(shots["player_id"]).mean().round(3))
-    print(shots.head(3).T)
+    print(f"Built {len(shots)} shots for season {SEASON}, all matched to raw JSON")
+
+    deleted, loaded = load_shots(shots, int(SEASON))
+    print(f"Committed: replaced {deleted} old rows with {loaded} new rows")

@@ -91,13 +91,15 @@ Understat team ids: full list of all 20 PL clubs in `COMPLETIONS_LOG.md`.
 
 Table definition: `db/001_staging_understat_shots.sql` (+ `loaded_at` audit column).
 
-## Supabase schema (verified live 2026-09-19)
+## Supabase schema (public verified 2026-09-19; staging 2026-09-27)
 
-`public` has 5 curated tables, seeded with a 3-club sample. `staging`
-exists with an empty `understat_shots`; **no raw Understat data is persisted yet.** The `public`
-schema lives only in Supabase — not yet in the repo. `db/` holds new SQL,
-numbered in the order to apply it; `001` (staging shots) applied
-2026-09-27 — table exists, empty until the loader runs.
+`public` has 5 curated tables, seeded with a 3-club sample. `staging` has
+`understat_shots`: **9,878 rows for season 2024**, loaded by
+`load_understat_shots.py`. That loader is idempotent (one transaction: delete the
+season, insert, verify count, commit) — re-running replaces, never duplicates;
+`exploration/test_rollback.py` proves a failed load leaves the previous one intact.
+The `public` schema lives only in Supabase — not yet in the repo. `db/` holds
+new SQL, numbered in the order to apply it; `001` (staging shots) is applied.
 
 | Table | Shape | Rows | Notes |
 |---|---|---|---|
@@ -149,6 +151,6 @@ we touch that piece.
 
 ## Roadmap
 
-1. Staging ingestion (next) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
+1. Staging ingestion (shots done 2026-09-27; schedule/players not yet) → 2. Marts (style metrics) → 3. Scale 3 → 20 clubs
 (bottleneck is curation, not code) → 4. `club_legends` + `legendary_matches`
 (YouTube links) → 5. Matching logic → 6. Streamlit → 7. ML (only if it scales).

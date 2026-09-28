@@ -113,11 +113,13 @@ overachiever. (Two families: club *identity* + *playing style*.)
 ---
 
 ## In progress / next action
-- [ ] **The "permanent link":** persist soccerdata reads to Supabase instead of
-      reading-to-memory-and-printing. This is the resume point.
+- [x] **The "permanent link":** 2026-09-27 — season 2024 shots persisted to
+      `staging.understat_shots` (9,878 rows) by `load_understat_shots.py`.
+      Details in git history and `CLAUDE.md`.
 
 ## Not built yet (planned)
-- [ ] `staging` schema for raw Understat data (shots/schedule/players)
+- [x] `staging` schema + `understat_shots` (2026-09-27)
+- [ ] staging schedule and player-season tables
 - [ ] marts layer: per-club playing-style metrics derived from raw shots
 - [ ] dbt, Streamlit dashboard, GitHub Actions scheduling
 - [ ] legends + legendary_matches tables (YouTube links)
