@@ -14,3 +14,6 @@ __pycache__/
 .DS_Store
 # ...except the template, which holds placeholders only (no secrets)
 !.env.example
+
+# Claude Code worktrees: separate checkouts of this repo, not project files
+.claude/worktrees/
